@@ -11,6 +11,10 @@ import io.ktor.websocket.*
 import java.time.Duration
 import java.util.*
 
+val product1 = Product("Product 1", "Description 1", 100.0, 1000)
+val product2 = Product("Product 2", "Description 2", 200.0, 1000)
+
+var products = mutableListOf(product1, product2)
 fun Application.configureSockets() {
 
 
@@ -24,11 +28,10 @@ fun Application.configureSockets() {
         
     """
 
-    val product1 = Product("Product 1", "Description 1", 100.0, 1000)
-    val product2 = Product("Product 2", "Description 2", 200.0, 1000)
+
 
     //create a mutable list of products
-    var products = mutableListOf(product1, product2)
+
 
     //create a list of startingInventory, which is a list of products and their quantities, this should be done by looping through the products list
     val startingInventory = mutableListOf<Inventory>()
@@ -39,14 +42,14 @@ fun Application.configureSockets() {
     //for loop to create a list of 5 traders --- TODO: move this to a config file
     val traders = mutableListOf<Trader>()
     for (i in 1..5) {
-        traders.add(Trader(UUID.randomUUID(), "Trader $i", 100000.0, startingInventory))
+        traders.add(Trader(UUID.randomUUID(), "Trader $i", 100000.0, startingInventory, "Welcome to the market!"))
     }
 
     println(tradersString)
     // print traders list on new lines
     traders.forEach { println(it.toJson()) }
     println("Example Buy Order:")
-    println(BuyOrder(UUID.randomUUID(), "Example Product To Buy", 100.0, 10).toJson())
+    println(BuyOrder(UUID.randomUUID(), "Example Product To Buy", 10).toJson())
 
     install(WebSockets) {
         pingPeriod = Duration.ofSeconds(15)
@@ -86,59 +89,76 @@ fun Application.configureSockets() {
                 if (frame is Frame.Text) {
                     //incoming is a json representation of a BuyOrder, so we can deserialize it to a BuyOrder object
                     val buyOrder = BuyOrder.fromJson(frame.readText())
-                    val product = products.find { it.name == buyOrder.product }
-
-                    // check for the buyer in the traders list. throw an exception if the buyer is not found
-                    val buyer = traders.find { it.traderId == buyOrder.buyer }
-                    if (buyer == null) {
-                        println("Buyer not found")
-                        throw Exception("Buyer not found")
-                    }
-                    // if the buyer does not have enough cash, throw an exception
-                    if (buyer.cash < buyOrder.price * buyOrder.quantity) {
-                        throw Exception("Not enough cash")
-                    }
-                    // if the buyer does not offer enough cash, throw an exception
-                    if (product!!.price < buyOrder.price) {
-                        throw Exception("Offer Not high enough")
-                    }
-
-                    buyer.cash -= product.price * buyOrder.quantity
-
-                    //update the buyer's inventory
-                    buyer.inventory = buyer.inventory.map {
-                        if (it.name == buyOrder.product) {
-                            it.quantity += buyOrder.quantity
-                        }
-                        it
-                    }.toMutableList()
-
-                    products = updateProductBuy(buyOrder.product, buyOrder.quantity, products)
-                    //serialize this trader to a json string and send it to the client
-                    print(buyer.toJson())
+                    val buyer = trader(buyOrder, traders)
                     outgoing.send(Frame.Text(buyer.toJson()))
                 }
             }
         }
     }
+
+}
+
+private fun trader(
+    buyOrder: BuyOrder,
+    traders: MutableList<Trader>
+): Trader {
+
+    // check for the buyer in the traders list. throw an exception if the buyer is not found
+    val buyer = traders.find { it.traderId == buyOrder.buyer } ?: throw Exception("Trader not found")
+
+    val product = products.find { it.name == buyOrder.product }
+
+    //if the product does not exist, set the message to "Product not found" and return the buyer
+    if (product == null) {
+        return buyer.apply { message = "Product not found"}
+    }
+
+    // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
+    if (buyer.cash < product.price * buyOrder.quantity) {
+        return buyer.apply { message = "Not enough cash"}
+    }
+
+    buyer.cash -= product.price * buyOrder.quantity
+
+    //update the buyer's inventory
+    buyer.inventory = buyer.inventory.map {
+        if (it.name == buyOrder.product) {
+            it.quantity += buyOrder.quantity
+        }
+        it
+    }.toMutableList()
+
+    updateProductBuy(buyOrder.product, buyOrder.quantity)
+
+    //if the message is set to "Not enough quantity of product available", return the buyer
+    if (buyer.message == "Not enough quantity of product available") {
+        return buyer
+    }
+
+    //serialize this trader to a json string and send it to the client
+    print(buyer.toJson())
+    //assuming everything is ok, set the message to "Order successful"
+    return buyer
 }
 
 
-
-fun updateProductBuy(productName: String, quantity: Int, products: MutableList<Product>): MutableList<Product> {
+fun updateProductBuy(productName: String, quantity: Int): String {
     val product = products.find { it.name == productName }
     product?.let {
 
         // if the buyorder quantity is greater than the product quantity, throw an exception
         if (it.quantity  - quantity <= 0) {
-            throw Exception("Not enough quantity")
+            return "Not enough quantity of product available"
         } else {
             it.quantity -= quantity
             it.price += (it.price * 0.01 * quantity)
         }
     }
-    return products
+    return "Order successful"
 }
+
+
+
 
 fun updateProductSell(productName: String, quantity: Int, products: MutableList<Product>): MutableList<Product> {
     val product = products.find { it.name == productName }
