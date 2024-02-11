@@ -1,6 +1,6 @@
 package com.example.plugins
 
-import com.example.model.BuyOrder
+import com.example.model.MarketOrder
 import com.example.model.Inventory
 import com.example.model.Product
 import com.example.model.Trader
@@ -30,9 +30,6 @@ fun Application.configureSockets() {
 
 
 
-    //create a mutable list of products
-
-
     //create a list of startingInventory, which is a list of products and their quantities, this should be done by looping through the products list
     val startingInventory = mutableListOf<Inventory>()
     for (product in products) {
@@ -49,7 +46,7 @@ fun Application.configureSockets() {
     // print traders list on new lines
     traders.forEach { println(it.toJson()) }
     println("Example Buy Order:")
-    println(BuyOrder(UUID.randomUUID(), "Example Product To Buy", 10).toJson())
+    println(MarketOrder(UUID.randomUUID(), "Example Product To Buy", 10).toJson())
 
     install(WebSockets) {
         pingPeriod = Duration.ofSeconds(15)
@@ -81,32 +78,46 @@ fun Application.configureSockets() {
         }
 
 
-
-
-        webSocket("/buy") {
+        webSocket("/marketOrder") {
             //serialize the incoming to a BuyOrder object and print it out
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     //incoming is a json representation of a BuyOrder, so we can deserialize it to a BuyOrder object
-                    val buyOrder = BuyOrder.fromJson(frame.readText())
-                    val buyer = trader(buyOrder, traders)
+                    val marketOrder = MarketOrder.fromJson(frame.readText())
+                    val buyer = marketOrder(marketOrder, traders)
                     outgoing.send(Frame.Text(buyer.toJson()))
                 }
             }
         }
+
+        // we will have a buy which will buy at a specific price.
+        // If quantity is greater than one, it will buy until the quantity is reached or the price is reached
+        webSocket("/buyOrder") {
+            //serialize the incoming to a BuyOrder object and print it out
+            for (frame in incoming) {
+                if (frame is Frame.Text) {
+                    //incoming is a json representation of a BuyOrder, so we can deserialize it to a BuyOrder object
+                    val buyOrder = MarketOrder.fromJson(frame.readText())
+                    val buyer = marketOrder(buyOrder, traders)
+                    outgoing.send(Frame.Text(buyer.toJson()))
+                }
+            }
+        }
+
+
     }
 
 }
 
-private fun trader(
-    buyOrder: BuyOrder,
+private fun marketOrder(
+    marketOrder: MarketOrder,
     traders: MutableList<Trader>
 ): Trader {
 
     // check for the buyer in the traders list. throw an exception if the buyer is not found
-    val buyer = traders.find { it.traderId == buyOrder.buyer } ?: throw Exception("Trader not found")
+    val buyer = traders.find { it.traderId == marketOrder.buyer } ?: throw Exception("Trader not found")
 
-    val product = products.find { it.name == buyOrder.product }
+    val product = products.find { it.name == marketOrder.product }
 
     //if the product does not exist, set the message to "Product not found" and return the buyer
     if (product == null) {
@@ -114,21 +125,21 @@ private fun trader(
     }
 
     // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
-    if (buyer.cash < product.price * buyOrder.quantity) {
+    if (buyer.cash < product.price * marketOrder.quantity) {
         return buyer.apply { message = "Not enough cash"}
     }
 
-    buyer.cash -= product.price * buyOrder.quantity
+    buyer.cash -= product.price * marketOrder.quantity
 
     //update the buyer's inventory
     buyer.inventory = buyer.inventory.map {
-        if (it.name == buyOrder.product) {
-            it.quantity += buyOrder.quantity
+        if (it.name == marketOrder.product) {
+            it.quantity += marketOrder.quantity
         }
         it
     }.toMutableList()
 
-    updateProductBuy(buyOrder.product, buyOrder.quantity)
+    updateProductBuy(marketOrder.product, marketOrder.quantity)
 
     //if the message is set to "Not enough quantity of product available", return the buyer
     if (buyer.message == "Not enough quantity of product available") {

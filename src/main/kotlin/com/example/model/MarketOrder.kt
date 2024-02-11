@@ -6,7 +6,7 @@ import java.util.*
 
 //this represents a market buy order
 //a market buy order is an order to buy a product at the best available price in the current market
-data class BuyOrder(
+data class MarketOrder(
     val buyer: UUID,
     val product: String,    //name of the product
     val quantity: Int,
@@ -15,9 +15,9 @@ data class BuyOrder(
         return "{\"buyer\":\"$buyer\",\"product\":\"$product\",\"quantity\":$quantity}"
     }
     companion object {
-        fun fromJson(json: String): BuyOrder {
+        fun fromJson(json: String): MarketOrder {
             //convert string to json
-            return Gson().fromJson(json, BuyOrder::class.java)
+            return Gson().fromJson(json, MarketOrder::class.java)
         }
     }
 }
