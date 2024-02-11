@@ -102,7 +102,7 @@ fun Application.configureSockets() {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val marketOrder = Product.fromJson(frame.readText())
-                    val buyer = placeOrder(marketOrder, traders, OrderType.MARKET)
+                    val buyer = placeOrder(marketOrder, traders)
                     outgoing.send(Frame.Text(buyer.toJson()))
                     executeOrders()
                 }
@@ -113,8 +113,19 @@ fun Application.configureSockets() {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val buyOrder = Product.fromJson(frame.readText())
-                    val buyer = placeOrder(buyOrder, traders, OrderType.IOC)
+                    val buyer = placeOrder(buyOrder, traders)
                     outgoing.send(Frame.Text(buyer.toJson()))
+                    executeOrders()
+                }
+            }
+        }
+        // we will have an ask which will sell at a specific price. but does not have to execute immediately
+        webSocket("/askOrder") {
+            for (frame in incoming) {
+                if (frame is Frame.Text) {
+                    val sellOrder = Product.fromJson(frame.readText())
+                    val seller = placeOrder(sellOrder, traders)
+                    outgoing.send(Frame.Text(seller.toJson()))
                     executeOrders()
                 }
             }
@@ -128,7 +139,6 @@ fun Application.configureSockets() {
 private fun placeOrder(
     productOrder: Product,
     traders: MutableList<Trader>,
-    orderType: OrderType
 ): Trader {
 
     // check for the buyer in the traders list. throw an exception if the buyer is not found
@@ -136,24 +146,59 @@ private fun placeOrder(
 
     val product = products.find { it.name == productOrder.name }
 
-    if (orderType == OrderType.MARKET) {
+    if (productOrder.type == OrderType.MARKET) {
         productOrder.price = Double.MAX_VALUE
     }
 
+    if (productOrder.direction == OrderDirection.BUY) {
+        productOrder.price = Double.MAX_VALUE
 
-    //if the product does not exist, set the message to "Product not found" and return the buyer
-    if (product == null) {
-        return trader.apply { message = "Product not found"}
+        //if the product does not exist, set the message to "Product not found" and return the buyer
+        if (product == null) {
+            return trader.apply { message = "Product not found" }
+        }
+
+
+        // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
+        if (trader.cash < product.price * productOrder.quantity) {
+            return trader.apply { message = "Not enough cash" }
+        }
+
+
+        // add an order to the market for the product with the direction of BUY
+        val order = Product(
+            productOrder.name,
+            product.description,
+            product.price,
+            productOrder.quantity,
+            trader.traderId,
+            OrderDirection.BUY,
+            productOrder.type
+        )
+        products.add(order)
+    } else {
+        //if the product does not exist, set the message to "Product not found" and return the buyer
+        if (product == null) {
+            return trader.apply { message = "Product not found" }
+        }
+
+        // if the buyer does not have enough quantity of the product, set the message to "Not enough quantity of product available" and return the buyer
+        if ((trader.inventory.find { it.name == productOrder.name }?.quantity ?: 0) < productOrder.quantity) {
+            return trader.apply { message = "Not enough quantity of product available" }
+        }
+
+        // add an order to the market for the product with the direction of SELL
+        val order = Product(
+            productOrder.name,
+            product.description,
+            product.price,
+            productOrder.quantity,
+            trader.traderId,
+            OrderDirection.SELL,
+            productOrder.type
+        )
+        products.add(order)
     }
-
-    // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
-    if (trader.cash < product.price * productOrder.quantity) {
-        return trader.apply { message = "Not enough cash"}
-    }
-
-    // add an order to the market for the product with the direction of BUY
-    val order = Product(productOrder.name, "", product.price, productOrder.quantity, trader.traderId, OrderDirection.BUY, orderType)
-    products.add(order)
 
     return trader.apply { message = "Order registered"}
 }
