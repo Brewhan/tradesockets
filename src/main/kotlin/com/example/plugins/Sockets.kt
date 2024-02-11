@@ -75,7 +75,7 @@ fun Application.configureSockets() {
         }
 
         //websocket that will send the current price of all products every 5 seconds
-        webSocket("/price") {
+        webSocket("/products") {
             while (true) {
                 outgoing.send(Frame.Text(products.map { it.toJson() }.toString()))
                 Thread.sleep(5000)
@@ -101,7 +101,7 @@ fun Application.configureSockets() {
             outgoing.send(Frame.Text(traders.map { it.toJson() }.toString()))
         }
         // list all products including their buy and sell directions
-        webSocket("/products"){
+        webSocket("/productsNow"){
             outgoing.send(Frame.Text(products.map { it.toJson() }.toString()))
         }
 
