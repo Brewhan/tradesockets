@@ -1,5 +1,6 @@
 package com.example.model
 
+import com.google.gson.Gson
 import java.util.UUID
 
 data class Trader (
@@ -10,13 +11,12 @@ data class Trader (
     var message: String
 ){
 fun toJson(): String {
-        return "{\"traderId\":\"$traderId\",\"name\":\"$name\",\"cash\":$cash,\"inventory\":${inventory.map { it.toJson() }},\"message\":\"$message\"}"
+        return Gson().toJson(this)
+
     }
     companion object {
         fun fromJson(json: String): Trader {
-            val regex = Regex("[^0-9a-zA-Z]")
-            val jsonList = json.split(regex)
-            return Trader(UUID.fromString(jsonList[1]), jsonList[3], jsonList[5].toDouble(), mutableListOf(), jsonList[7])
+            return Gson().fromJson(json, Trader::class.java)
         }
     }
 
