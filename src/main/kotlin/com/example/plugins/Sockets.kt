@@ -77,8 +77,6 @@ fun Application.configureSockets() {
             }
         }
 
-        //TODO create a STOP loss order
-
         //websocket that will send the current price of all products every 5 seconds
         webSocket("/products") {
             while (true) {
