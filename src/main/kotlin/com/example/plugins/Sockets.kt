@@ -73,6 +73,15 @@ fun Application.configureSockets() {
                 }
             }
         }
+
+        //websocket that will send the current price of all products every 5 seconds
+        webSocket("/price") {
+            while (true) {
+                outgoing.send(Frame.Text(products.map { it.toJson() }.toString()))
+                Thread.sleep(5000)
+            }
+        }
+
         webSocket("/randomEvent") {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
@@ -97,35 +106,13 @@ fun Application.configureSockets() {
         }
 
         //here we are performing a market order, which is an order to buy a product at the best available price in the current market
-        webSocket("/marketOrder") {
+        webSocket("/order") {
             //serialize the incoming to a BuyOrder object and print it out
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val marketOrder = Product.fromJson(frame.readText())
                     val buyer = placeOrder(marketOrder, traders)
                     outgoing.send(Frame.Text(buyer.toJson()))
-                    executeOrders()
-                }
-            }
-        }
-        // we will have a buy which will buy at a specific price. or lower, but must execute immediately
-        webSocket("/iocOrder") {
-            for (frame in incoming) {
-                if (frame is Frame.Text) {
-                    val buyOrder = Product.fromJson(frame.readText())
-                    val buyer = placeOrder(buyOrder, traders)
-                    outgoing.send(Frame.Text(buyer.toJson()))
-                    executeOrders()
-                }
-            }
-        }
-        // we will have an ask which will sell at a specific price. but does not have to execute immediately
-        webSocket("/askOrder") {
-            for (frame in incoming) {
-                if (frame is Frame.Text) {
-                    val sellOrder = Product.fromJson(frame.readText())
-                    val seller = placeOrder(sellOrder, traders)
-                    outgoing.send(Frame.Text(seller.toJson()))
                     executeOrders()
                 }
             }
