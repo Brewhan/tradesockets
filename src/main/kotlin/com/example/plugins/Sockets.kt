@@ -1,6 +1,8 @@
 package com.example.plugins
 
 import com.example.model.*
+import com.example.services.Sentiment
+import com.example.services.randomEvent
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -10,10 +12,14 @@ import java.util.*
 
 var houseUUID: UUID = UUID.randomUUID()
 
-val product1 = Product("Product 1", "Description 1", 100.0, 1000, houseUUID, OrderDirection.SELL,null)
-val product2 = Product("Product 2", "Description 2", 200.0, 1000, houseUUID, OrderDirection.SELL, null)
+val product1 = Product("Technology", "Description 1", 100.0, 1000, houseUUID, OrderDirection.SELL,null)
+val product2 = Product("Food", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
+val product3 = Product("Real Estate", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
+val product4 = Product("Oil", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
+val product5 = Product("Raw Materials", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
 
-var products = mutableListOf(product1, product2)
+
+var products = mutableListOf(product1, product2, product3, product4, product5)
 val traders = mutableListOf<Trader>()
 fun Application.configureSockets() {
 
@@ -31,7 +37,7 @@ fun Application.configureSockets() {
 
 
     //for loop to create a list of 5 traders --- TODO: move this to a config file
-
+    traders.add(Trader(houseUUID, "House", 10000000000.0, mutableListOf(), "The House Always Wins."))
     for (i in 1..5) {
         val startingInventory = mutableListOf<Inventory>()
         for (product in products) {
@@ -40,7 +46,7 @@ fun Application.configureSockets() {
         traders.add(Trader(UUID.randomUUID(), "Trader $i", 100000.0, startingInventory, "Welcome to the market!"))
 
     }
-    traders.add(Trader(houseUUID, "House", 10000000000.0, mutableListOf(), "The House Always Wins."))
+
 
     println(tradersString)
     // print traders list on new lines
@@ -67,22 +73,34 @@ fun Application.configureSockets() {
                 }
             }
         }
+        webSocket("/randomEvent") {
+            for (frame in incoming) {
+                if (frame is Frame.Text) {
+                    val randomEvent = randomEvent()
+                    outgoing.send(Frame.Text(randomEvent.toString()))
+                    if(randomEvent.third == Sentiment.NEGATIVE) {
+                        products.forEach { changePrice(it, 0.9) }
+                    } else {
+                        products.forEach { changePrice(it, 1.1) }
+                    }
+                }
+            }
+        }
+
         webSocket("/traders"){
-            //serialize the traders list to a json string and send it to the client
             println(traders.map { it.toJson() }.toString())
             outgoing.send(Frame.Text(traders.map { it.toJson() }.toString()))
         }
-
+        // list all products including their buy and sell directions
         webSocket("/products"){
-            //serialize the traders list to a json string and send it to the client
             outgoing.send(Frame.Text(products.map { it.toJson() }.toString()))
         }
 
+        //here we are performing a market order, which is an order to buy a product at the best available price in the current market
         webSocket("/marketOrder") {
             //serialize the incoming to a BuyOrder object and print it out
             for (frame in incoming) {
                 if (frame is Frame.Text) {
-                    //incoming is a json representation of a BuyOrder, so we can deserialize it to a BuyOrder object
                     val marketOrder = Product.fromJson(frame.readText())
                     val buyer = placeOrder(marketOrder, traders, OrderType.MARKET)
                     outgoing.send(Frame.Text(buyer.toJson()))
@@ -90,14 +108,10 @@ fun Application.configureSockets() {
                 }
             }
         }
-
-        // we will have a buy which will buy at a specific price.
-        // If quantity is greater than one, it will buy until the quantity is reached or the price is reached
+        // we will have a buy which will buy at a specific price. or lower, but must execute immediately
         webSocket("/iocOrder") {
-            //serialize the incoming to a BuyOrder object and print it out
             for (frame in incoming) {
                 if (frame is Frame.Text) {
-                    //incoming is a json representation of a BuyOrder, so we can deserialize it to a BuyOrder object
                     val buyOrder = Product.fromJson(frame.readText())
                     val buyer = placeOrder(buyOrder, traders, OrderType.IOC)
                     outgoing.send(Frame.Text(buyer.toJson()))
@@ -223,4 +237,16 @@ fun executeOrders() {
         }
     }
 thread.start()
+}
+
+// function that after 10 seconds will increase or drop the price of a product given in a variable by a percentage
+fun changePrice(product: Product, percentage: Double) {
+    val thread = Thread {
+        Thread.sleep(10000)
+        val product = products.find { it.name == product.name }
+        if (product != null) {
+            product.price *= percentage
+        }
+    }
+    thread.start()
 }
