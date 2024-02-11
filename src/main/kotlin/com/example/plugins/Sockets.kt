@@ -53,6 +53,9 @@ fun Application.configureSockets() {
     traders.forEach { println(it.toJson()) }
     println("Example Buy Order:")
     println(Product("Product 1", "Description 1", 100.0, 100, traders[0].traderId, OrderDirection.BUY, OrderType.MARKET).toJson())
+    println("NOTE: Example Order uses house UUID as the example trader. Consider using POSTMAN to send the example order to the broker using /order endpoint.")
+    println("Order types are: ${OrderType.entries}")
+    println("Order directions are: ${OrderDirection.entries}")
 
 
     install(WebSockets) {
