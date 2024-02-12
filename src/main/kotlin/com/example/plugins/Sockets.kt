@@ -73,6 +73,8 @@ fun Application.configureSockets() {
             }
         }
 
+        //TODO: Add a join room endpoint, this will allow traders to join without us having to manually add them
+
         //websocket that will send the current price of all products every 5 seconds
         webSocket("/products") {
             while (true) {
