@@ -3,12 +3,39 @@ package com.example.plugins
 import com.example.model.*
 import com.example.services.Sentiment
 import com.example.services.randomEvent
+import com.moandjiezana.toml.Toml
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import java.io.File
 import java.time.Duration
 import java.util.*
+
+
+//read starting_products.toml file and create a list of products
+fun config(): MutableList<Product> {
+    //read the toml file
+    //create a list of products
+    val toml = Toml().read(File("src/main/resources/starting_products.toml"))
+    val productTable = toml.getTables("products")
+    val pList = mutableListOf<Product>()
+
+    productTable.forEach { pt ->
+        val p = Product(
+            name=pt.getString("name"),
+            description=pt.getString("description"),
+            price=pt.getDouble("price"),
+            quantity=pt.getString("quantity").toInt(),
+            owner=UUID.randomUUID(),
+            direction=OrderDirection.valueOf(pt.getString("direction")),
+            type=null,
+        )
+        pList.add(p)
+    }
+    return pList;
+}
+
 
 var houseUUID: UUID = UUID.randomUUID()
 
@@ -37,16 +64,14 @@ fun Application.configureSockets() {
 
 
     //for loop to create a list of 5 traders --- TODO: move this to a config file
-    traders.add(Trader(houseUUID, "House", 10000000000.0, mutableListOf(), "The House Always Wins."))
+    traders.add(Trader(houseUUID, "House", Double.MAX_VALUE, mutableListOf(), "The House Always Wins."))
     for (i in 1..5) {
         val startingInventory = mutableListOf<Inventory>()
         for (product in products) {
             startingInventory.add(Inventory(product.name, 0))
         }
         traders.add(Trader(UUID.randomUUID(), "Trader $i", 100000.0, startingInventory, "Welcome to the market!"))
-
     }
-
 
     println(tradersString)
     // print traders list on new lines

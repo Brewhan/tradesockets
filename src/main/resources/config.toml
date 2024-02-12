@@ -1,0 +1,39 @@
+[[products]]
+name = "Technology"
+description = "The tech sector"
+price = 100.0
+quantity = 1000
+owner = ""
+direction = "SELL"
+
+[[products]]
+name = "Food"
+description = "The food sector"
+price = 100.0
+quantity = 1000
+owner = ""
+direction = "SELL"
+
+[[products]]
+name = "Real Estate"
+description = "The real estate sector"
+price = 100.0
+quantity = 1000
+owner = ""
+direction = "SELL"
+
+[[products]]
+name = "Oil"
+description = "The oil sector"
+price = 100.0
+quantity = 1000
+owner = ""
+direction = "SELL"
+
+[[products]]
+name = "Raw Materials"
+description = "The raw materials sector"
+price = 100.0
+quantity = 1000
+owner = ""
+direction = "SELL"
