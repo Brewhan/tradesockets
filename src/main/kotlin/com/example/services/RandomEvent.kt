@@ -1,8 +1,10 @@
 package com.example.services
 
+import com.example.plugins.products
+
 fun randomEvent(): Triple<String, String, Sentiment> {
 
-    val productNames = listOf("Technology", "Food", "Real Estate", "Oil", "Raw Materials")
+    val productNames = ReadConfig().products().map { it.name }
 
     val randomEvents = listOf(
         "A new product has been released ",

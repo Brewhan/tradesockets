@@ -33,6 +33,7 @@ fun Application.configureSockets() {
         
     """
 
+
     //for loop to create a list of 5 traders --- TODO: move this to a config file
     traders.add(Trader(houseUUID, "House", ReadConfig().houseCash, mutableListOf(), "The House Always Wins."))
     for (i in 1..ReadConfig().numTraders) {
