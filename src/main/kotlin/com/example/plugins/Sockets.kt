@@ -20,6 +20,10 @@ var houseUUID: UUID = UUID.randomUUID()
 
 var products= ReadConfig().products()
 val traders = mutableListOf<Trader>()
+
+//maintain a list of productNames
+val productNames = products.map { it.name }
+
 fun Application.configureSockets() {
 
 
@@ -173,8 +177,8 @@ private fun placeOrder(
         )
         products.add(order)
     } else {
-        //if the product does not exist, set the message to "Product not found" and return the buyer
-        if (product == null) {
+        // if productorder name is not in the list of product names, set the message to "Product not found" and return the buyer
+        if (!productNames.contains(productOrder.name)) {
             return trader.apply { message = "Product not found" }
         }
 
@@ -186,8 +190,8 @@ private fun placeOrder(
         // add an order to the market for the product with the direction of SELL
         val order = Product(
             productOrder.name,
-            product.description,
-            product.price,
+            productOrder.description,
+            productOrder.price,
             productOrder.quantity,
             trader.traderId,
             OrderDirection.SELL,
