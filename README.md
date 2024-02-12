@@ -1,13 +1,7 @@
 
-        ___________                  .___                   
-\__    ___/___________     __| _/___________  ______
-  |    |  \_  __ \__  \   / __ |/ __ \_  __ \/  ___/
-  |    |   |  | \// __ \_/ /_/ \  ___/|  | \/\___ \ 
-  |____|   |__|  (____  /\____ |\___  >__|  /____  >
-                      \/      \/    \/           \/
+#TradeSockets! 
 
-
-Websockets based basic trading app.
+##Websockets based ultra-basic trading app. Built for education.
 
 Built using Ktor for Kotlin.
 
