@@ -78,7 +78,10 @@ fun Application.configureSockets() {
         //websocket that will send the current price of all products every 5 seconds
         webSocket("/products") {
             while (true) {
-                outgoing.send(Frame.Text(products.map { it.toJson() }.toString()))
+                //hide the uuid before sending back products
+                val products = products.map { it.toJson() }.toString().replace(Regex("owner\":\"[a-zA-Z0-9-]*\""),
+                    "owner\":\"\"")
+                outgoing.send(Frame.Text(products))
                 Thread.sleep(5000)
             }
         }
@@ -99,11 +102,16 @@ fun Application.configureSockets() {
 
         webSocket("/traders"){
             println(traders.map { it.toJson() }.toString())
-            outgoing.send(Frame.Text(traders.map { it.toJson() }.toString()))
+            // hide the uuid before sending back traders
+            val traders = traders.map { it.toJson() }.toString().replace(Regex("traderId\":\"[a-zA-Z0-9-]*\""), "traderId\":\"\"")
+            outgoing.send(Frame.Text(traders))
         }
         // list all products including their buy and sell directions
         webSocket("/productsNow"){
-            outgoing.send(Frame.Text(products.map { it.toJson() }.toString()))
+            //hide the uuid before sending back products
+            val products = products.map { it.toJson() }.toString().replace(Regex("owner\":\"[a-zA-Z0-9-]*\""),
+                "owner\":\"\"")
+            outgoing.send(Frame.Text(products))
         }
 
         //here we are performing a market order, which is an order to buy a product at the best available price in the current market
