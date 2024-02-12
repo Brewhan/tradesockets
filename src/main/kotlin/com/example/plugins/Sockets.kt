@@ -28,12 +28,12 @@ fun Application.configureSockets() {
 
 
     val tradersString = """
-        ___________                  .___                   
-\__    ___/___________     __| _/___________  ______
-  |    |  \_  __ \__  \   / __ |/ __ \_  __ \/  ___/
-  |    |   |  | \// __ \_/ /_/ \  ___/|  | \/\___ \ 
-  |____|   |__|  (____  /\____ |\___  >__|  /____  >
-                      \/      \/    \/           \/
+___________                  .___       _________              __           __          
+\__    ___/___________     __| _/____  /   _____/ ____   ____ |  | __ _____/  |_  ______
+  |    |  \_  __ \__  \   / __ |/ __ \ \_____  \ /  _ \_/ ___\|  |/ // __ \   __\/  ___/
+  |    |   |  | \// __ \_/ /_/ \  ___/ /        (  <_> )  \___|    <\  ___/|  |  \___ \ 
+  |____|   |__|  (____  /\____ |\___  >_______  /\____/ \___  >__|_ \\___  >__| /____  >
+                      \/      \/    \/        \/            \/     \/    \/          \/ 
         
     """
 
@@ -288,9 +288,9 @@ thread.start()
 fun changePrice(product: Product, percentage: Double) {
     val thread = Thread {
         Thread.sleep(10000)
-        val product = products.find { it.name == product.name }
-        if (product != null) {
-            product.price *= percentage
+        val productMatch = products.find { it.name == product.name }
+        if (productMatch != null) {
+            productMatch.price *= percentage
         }
     }
     thread.start()
