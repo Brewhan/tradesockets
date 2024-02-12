@@ -17,7 +17,7 @@ import java.util.*
 fun config(): MutableList<Product> {
     //read the toml file
     //create a list of products
-    val toml = Toml().read(File("src/main/resources/starting_products.toml"))
+    val toml = Toml().read(File("src/main/resources/config.toml"))
     val productTable = toml.getTables("products")
     val pList = mutableListOf<Product>()
 
@@ -26,7 +26,7 @@ fun config(): MutableList<Product> {
             name=pt.getString("name"),
             description=pt.getString("description"),
             price=pt.getDouble("price"),
-            quantity=pt.getString("quantity").toInt(),
+            quantity=pt.getLong("quantity").toInt(),
             owner=UUID.randomUUID(),
             direction=OrderDirection.valueOf(pt.getString("direction")),
             type=null,
@@ -39,14 +39,8 @@ fun config(): MutableList<Product> {
 
 var houseUUID: UUID = UUID.randomUUID()
 
-val product1 = Product("Technology", "Description 1", 100.0, 1000, houseUUID, OrderDirection.SELL,null)
-val product2 = Product("Food", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
-val product3 = Product("Real Estate", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
-val product4 = Product("Oil", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
-val product5 = Product("Raw Materials", "Description 2", 100.0, 1000, houseUUID, OrderDirection.SELL, null)
 
-
-var products = mutableListOf(product1, product2, product3, product4, product5)
+var products= config()
 val traders = mutableListOf<Trader>()
 fun Application.configureSockets() {
 
@@ -60,8 +54,6 @@ fun Application.configureSockets() {
                       \/      \/    \/           \/
         
     """
-
-
 
     //for loop to create a list of 5 traders --- TODO: move this to a config file
     traders.add(Trader(houseUUID, "House", Double.MAX_VALUE, mutableListOf(), "The House Always Wins."))
