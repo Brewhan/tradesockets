@@ -7,7 +7,7 @@ fun randomEvent(): Triple<String, String, Sentiment> {
     val productNames = ReadConfig().products().map { it.name }
 
     val randomEvents = listOf(
-        "A new product has been released ",
+        "A new product has been released",
         "A new competitor has entered the market",
         "A new law has been passed",
         "A new tax has been introduced",
