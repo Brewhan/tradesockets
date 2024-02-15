@@ -1,7 +1,7 @@
 [traders]
 numTraders = 5
 startingCash = 10000.0
-houseCash = 2147483647.0
+houseCash = 1000000.0
 
 [[products]]
 name = "Technology"

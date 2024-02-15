@@ -8,7 +8,7 @@ import java.util.*
 
 class ReadConfig {
     private val toml: Toml = Toml().read(File("src/main/resources/config.toml"))
-    fun products(): MutableList<Product> {
+    fun products(houseUUID: UUID): MutableList<Product> {
         //read the toml file
         //create a list of products
 
@@ -21,7 +21,7 @@ class ReadConfig {
                 description=pt.getString("description"),
                 price=pt.getDouble("price"),
                 quantity=pt.getLong("quantity").toInt(),
-                owner= UUID.randomUUID(),
+                owner= houseUUID,
                 direction= OrderDirection.valueOf(pt.getString("direction")),
                 type=null,
             )

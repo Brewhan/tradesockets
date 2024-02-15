@@ -18,7 +18,7 @@ import java.util.*
 var houseUUID: UUID = UUID.randomUUID()
 
 
-var products= ReadConfig().products()
+var products= ReadConfig().products(houseUUID)
 val traders = mutableListOf<Trader>()
 
 //maintain a list of productNames
@@ -39,12 +39,9 @@ ___________                  .___       _________              __           __
 
 
     //for loop to create a list of 5 traders --- TODO: move this to a config file
-    traders.add(Trader(houseUUID, "House", ReadConfig().houseCash, mutableListOf(), "The House Always Wins."))
+    traders.add(Trader(houseUUID, "House", ReadConfig().houseCash, generateStarterInventory(products), "The House Always Wins."))
     for (i in 1..ReadConfig().numTraders) {
-        val startingInventory = mutableListOf<Inventory>()
-        for (product in products) {
-            startingInventory.add(Inventory(product.name, 0))
-        }
+        val startingInventory = generateStarterInventory(products)
         traders.add(Trader(UUID.randomUUID(), "Trader $i", ReadConfig().startingCash, startingInventory, "Welcome to the market!"))
     }
 
@@ -52,7 +49,7 @@ ___________                  .___       _________              __           __
     // print traders list on new lines
     traders.forEach { println(it.toJson()) }
     println("Example Buy Order:")
-    println(Product("Product 1", "Description 1", 100.0, 100, traders[0].traderId, OrderDirection.BUY, OrderType.MARKET).toJson())
+    println(Product(products[0].name, products[0].description, 100.0, 100, traders[0].traderId, OrderDirection.BUY, OrderType.MARKET).toJson())
     println("NOTE: Example Order uses house UUID as the example trader. Consider using POSTMAN to send the example order to the broker using /order endpoint.")
     println("Order types are: ${OrderType.entries}")
     println("Order directions are: ${OrderDirection.entries}")
@@ -93,7 +90,7 @@ ___________                  .___       _________              __           __
         webSocket("/randomEvent") {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
-                    val randomEvent = randomEvent()
+                    val randomEvent = randomEvent(products)
                     outgoing.send(Frame.Text(randomEvent.toString()))
                     if(randomEvent.third == Sentiment.NEGATIVE) {
                         products.forEach { changePrice(it, 0.9) }
@@ -103,7 +100,6 @@ ___________                  .___       _________              __           __
                 }
             }
         }
-
         webSocket("/traders"){
             println(traders.map { it.toJson() }.toString())
             // hide the uuid before sending back traders
@@ -132,6 +128,14 @@ ___________                  .___       _________              __           __
         }
     }
 
+}
+
+private fun generateStarterInventory(products: MutableList<Product>): MutableList<Inventory> {
+    val startingInventory = mutableListOf<Inventory>()
+    for (product in products) {
+        startingInventory.add(Inventory(product.name, 0))
+    }
+    return startingInventory
 }
 
 // probs don't need an object for market order, just use product
@@ -255,7 +259,7 @@ fun executeOrders() {
                             // update the buyer's inventory
                             buyer.inventory = buyer.inventory.map {
                                 if (it.name == sellOrder.name) {
-                                    it.quantity += sellOrder.quantity
+                                    it.quantity += buyOrder.quantity
                                 }
                                 it
                             }.toMutableList()

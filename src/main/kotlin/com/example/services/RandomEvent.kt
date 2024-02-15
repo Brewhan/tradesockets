@@ -1,10 +1,9 @@
 package com.example.services
 
+import com.example.model.Product
 import com.example.plugins.products
 
-fun randomEvent(): Triple<String, String, Sentiment> {
-
-    val productNames = ReadConfig().products().map { it.name }
+fun randomEvent(productNames: MutableList<Product>): Triple<String, String, Sentiment> {
 
     val randomEvents = listOf(
         "A new product has been released",
@@ -20,7 +19,6 @@ fun randomEvent(): Triple<String, String, Sentiment> {
 
 
     val randomEvent = randomEvents.random()
-    val randomProduct = productNames.random()
 
     //time for some not so random events
 
@@ -31,7 +29,7 @@ fun randomEvent(): Triple<String, String, Sentiment> {
     }
 
     val sentiment = Sentiment.entries.toTypedArray().random()
-    return Triple(randomEvent, randomProduct, sentiment)
+    return Triple(randomEvent, productNames.map { it.name }.random(), sentiment)
 }
 
 enum class Sentiment {
