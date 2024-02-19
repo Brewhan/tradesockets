@@ -2,13 +2,14 @@ package com.example.services
 
 import com.example.model.OrderDirection
 import com.example.model.Product
+import com.example.plugins.houseUUID
 import com.moandjiezana.toml.Toml
 import java.io.File
 import java.util.*
 
 class ReadConfig {
     private val toml: Toml = Toml().read(File("src/main/resources/config.toml"))
-    fun products(): MutableList<Product> {
+    fun products(uuid: UUID): MutableList<Product> {
         //read the toml file
         //create a list of products
 
@@ -21,7 +22,7 @@ class ReadConfig {
                 description=pt.getString("description"),
                 price=pt.getDouble("price"),
                 quantity=pt.getLong("quantity").toInt(),
-                owner= UUID.randomUUID(),
+                owner= houseUUID,
                 direction= OrderDirection.valueOf(pt.getString("direction")),
                 type=null,
             )
@@ -29,6 +30,12 @@ class ReadConfig {
         }
         return pList;
     }
+
+    //get product names from the config file
+    fun productNames(): List<String> {
+        return toml.getTables("products").map { it.getString("name") }
+    }
+
     val numTraders: Int = toml.getLong("traders.numTraders").toInt()
     val startingCash: Double = toml.getDouble("traders.startingCash")
     val houseCash: Double = toml.getDouble("traders.houseCash")

@@ -1,10 +1,10 @@
 package com.example.services
 
-import com.example.plugins.products
+import java.util.UUID
 
-fun randomEvent(): Triple<String, String, Sentiment> {
+fun randomEvent(uuid: UUID): Triple<String, String, Sentiment> {
 
-    val productNames = ReadConfig().products().map { it.name }
+    val productNames = ReadConfig().productNames()
 
     val randomEvents = listOf(
         "A new product has been released ",

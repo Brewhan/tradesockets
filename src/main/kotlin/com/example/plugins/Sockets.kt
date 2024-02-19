@@ -16,9 +16,7 @@ import java.util.*
 
 
 var houseUUID: UUID = UUID.randomUUID()
-
-
-var products = ReadConfig().products()
+var products = ReadConfig().products(houseUUID)
 val traders = mutableListOf<Trader>()
 val reports = mutableListOf<Report>()
 
@@ -63,8 +61,8 @@ ___________                  .___       _________              __           __
     println("Example Buy Order:")
     println(
         Product(
-            "Product 1",
-            "Description 1",
+            products[0].name,
+            products[0].description,
             100.0,
             100,
             traders[0].traderId,
@@ -112,14 +110,14 @@ ___________                  .___       _________              __           __
         }
 
         webSocket("/reports") {
-                val reports = reports.map { it.toJson() }.toString()
-                outgoing.send(Frame.Text(reports))
+            val reports = reports.map { it.toJson() }.toString()
+            outgoing.send(Frame.Text(reports))
         }
 
         webSocket("/randomEvent") {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
-                    val randomEvent = randomEvent()
+                    val randomEvent = randomEvent(houseUUID)
                     outgoing.send(Frame.Text(randomEvent.toString()))
                     if (randomEvent.third == Sentiment.NEGATIVE) {
                         products.forEach { changePrice(it, 0.9) }
@@ -129,6 +127,7 @@ ___________                  .___       _________              __           __
                 }
             }
         }
+
         webSocket("/traders") {
             println(traders.map { it.toJson() }.toString())
             // hide the uuid before sending back traders
@@ -136,6 +135,7 @@ ___________                  .___       _________              __           __
                 traders.map { it.toJson() }.toString().replace(Regex("traderId\":\"[a-zA-Z0-9-]*\""), "traderId\":\"\"")
             outgoing.send(Frame.Text(traders))
         }
+
         // list all products including their buy and sell directions
         webSocket("/productsNow") {
             //hide the uuid before sending back products
@@ -146,9 +146,7 @@ ___________                  .___       _________              __           __
             outgoing.send(Frame.Text(products))
         }
 
-        //here we are performing a market order, which is an order to buy a product at the best available price in the current market
         webSocket("/order") {
-            //serialize the incoming to a BuyOrder object and print it out
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val marketOrder = Product.fromJson(frame.readText())
@@ -185,9 +183,7 @@ ___________                  .___       _________              __           __
 
 }
 
-// probs don't need an object for market order, just use product
-
-private fun placeOrder(
+fun placeOrder(
     productOrder: Product,
     traders: MutableList<Trader>,
 ): Trader {
@@ -195,26 +191,16 @@ private fun placeOrder(
     // check for the buyer in the traders list. throw an exception if the buyer is not found
     val trader = traders.find { it.traderId == productOrder.owner } ?: throw Exception("Trader not found")
 
-    val product = products.find { it.name == productOrder.name }
+    // check for the product in the products list. do not return product if product order id is the same as the trader id. instead log a message
 
-    if (productOrder.type == OrderType.MARKET) {
-        productOrder.price = Double.MAX_VALUE
-    }
+    val product = products.find { it.name == productOrder.name && it.owner != productOrder.owner }
 
     if (productOrder.direction == OrderDirection.BUY) {
-        productOrder.price = Double.MAX_VALUE
 
         //if the product does not exist, set the message to "Product not found" and return the buyer
         if (product == null) {
             return trader.apply { message = "Product not found" }
         }
-
-
-        // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
-        if (trader.cash < product.price * productOrder.quantity) {
-            return trader.apply { message = "Not enough cash" }
-        }
-
 
         // add an order to the market for the product with the direction of BUY
         val order = Product(
@@ -271,10 +257,6 @@ fun executeOrders() {
                     sellOrder.price = buyOrder.price
                 }
 
-                if (buyOrder.type == OrderType.MARKET) {
-                    buyOrder.price = sellOrder.price
-                }
-
                 // if the buy order price is greater than or equal to the sell order price, execute the order
                 if (buyOrder.price >= sellOrder.price) {
                     // get the buyer and seller
@@ -284,7 +266,7 @@ fun executeOrders() {
                         traders.find { it.traderId == sellOrder.owner } ?: throw Exception("Seller not found")
 
                     // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
-                    if (buyer.cash < sellOrder.price * sellOrder.quantity) {
+                    if (buyer.cash < sellOrder.price * buyOrder.quantity) {
                         buyer.message = "Not enough cash"
                         if (buyOrder.type == OrderType.IOC) {
                             return
@@ -294,11 +276,14 @@ fun executeOrders() {
 
                     // if there is not enough quantity of the product in the sell order to fulfill the buy order, set the message to "Not enough quantity of product available" and return the buyer
                     if (sellOrder.quantity < buyOrder.quantity) {
-                        seller.message = "Not enough quantity of product available"
+                        buyer.message = "Not enough quantity of product available"
                         if (buyOrder.type == OrderType.IOC) {
                             return
                         }
                         continue
+                    }
+                    else{
+                        buyer.message = "Wah"
                     }
 
                     // update the buyer's cash
