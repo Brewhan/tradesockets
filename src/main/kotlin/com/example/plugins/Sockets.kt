@@ -18,8 +18,9 @@ import java.util.*
 var houseUUID: UUID = UUID.randomUUID()
 
 
-var products= ReadConfig().products()
+var products = ReadConfig().products()
 val traders = mutableListOf<Trader>()
+val reports = mutableListOf<Report>()
 
 //maintain a list of productNames
 val productNames = products.map { it.name }
@@ -45,14 +46,32 @@ ___________                  .___       _________              __           __
         for (product in products) {
             startingInventory.add(Inventory(product.name, 0))
         }
-        traders.add(Trader(UUID.randomUUID(), "Trader $i", ReadConfig().startingCash, startingInventory, "Welcome to the market!"))
+        traders.add(
+            Trader(
+                UUID.randomUUID(),
+                "Trader $i",
+                ReadConfig().startingCash,
+                startingInventory,
+                "Welcome to the market!"
+            )
+        )
     }
 
     println(tradersString)
     // print traders list on new lines
     traders.forEach { println(it.toJson()) }
     println("Example Buy Order:")
-    println(Product("Product 1", "Description 1", 100.0, 100, traders[0].traderId, OrderDirection.BUY, OrderType.MARKET).toJson())
+    println(
+        Product(
+            "Product 1",
+            "Description 1",
+            100.0,
+            100,
+            traders[0].traderId,
+            OrderDirection.BUY,
+            OrderType.MARKET
+        ).toJson()
+    )
     println("NOTE: Example Order uses house UUID as the example trader. Consider using POSTMAN to send the example order to the broker using /order endpoint.")
     println("Order types are: ${OrderType.entries}")
     println("Order directions are: ${OrderDirection.entries}")
@@ -83,11 +102,18 @@ ___________                  .___       _________              __           __
         webSocket("/products") {
             while (true) {
                 //hide the uuid before sending back products
-                val products = products.map { it.toJson() }.toString().replace(Regex("owner\":\"[a-zA-Z0-9-]*\""),
-                    "owner\":\"\"")
+                val products = products.map { it.toJson() }.toString().replace(
+                    Regex("owner\":\"[a-zA-Z0-9-]*\""),
+                    "owner\":\"\""
+                )
                 outgoing.send(Frame.Text(products))
                 Thread.sleep(5000)
             }
+        }
+
+        webSocket("/reports") {
+                val reports = reports.map { it.toJson() }.toString()
+                outgoing.send(Frame.Text(reports))
         }
 
         webSocket("/randomEvent") {
@@ -95,7 +121,7 @@ ___________                  .___       _________              __           __
                 if (frame is Frame.Text) {
                     val randomEvent = randomEvent()
                     outgoing.send(Frame.Text(randomEvent.toString()))
-                    if(randomEvent.third == Sentiment.NEGATIVE) {
+                    if (randomEvent.third == Sentiment.NEGATIVE) {
                         products.forEach { changePrice(it, 0.9) }
                     } else {
                         products.forEach { changePrice(it, 1.1) }
@@ -103,18 +129,20 @@ ___________                  .___       _________              __           __
                 }
             }
         }
-
-        webSocket("/traders"){
+        webSocket("/traders") {
             println(traders.map { it.toJson() }.toString())
             // hide the uuid before sending back traders
-            val traders = traders.map { it.toJson() }.toString().replace(Regex("traderId\":\"[a-zA-Z0-9-]*\""), "traderId\":\"\"")
+            val traders =
+                traders.map { it.toJson() }.toString().replace(Regex("traderId\":\"[a-zA-Z0-9-]*\""), "traderId\":\"\"")
             outgoing.send(Frame.Text(traders))
         }
         // list all products including their buy and sell directions
-        webSocket("/productsNow"){
+        webSocket("/productsNow") {
             //hide the uuid before sending back products
-            val products = products.map { it.toJson() }.toString().replace(Regex("owner\":\"[a-zA-Z0-9-]*\""),
-                "owner\":\"\"")
+            val products = products.map { it.toJson() }.toString().replace(
+                Regex("owner\":\"[a-zA-Z0-9-]*\""),
+                "owner\":\"\""
+            )
             outgoing.send(Frame.Text(products))
         }
 
@@ -126,7 +154,30 @@ ___________                  .___       _________              __           __
                     val marketOrder = Product.fromJson(frame.readText())
                     val buyer = placeOrder(marketOrder, traders)
                     outgoing.send(Frame.Text(buyer.toJson()))
-                    executeOrders()
+
+                    // create a thread to execute orders
+                    val thread = Thread {
+                        executeOrders()
+                    }
+                    thread.start()
+                }
+            }
+        }
+
+        //cancel an order
+        webSocket("/cancel") {
+            for (frame in incoming) {
+                if (frame is Frame.Text) {
+                    val order = Product.fromJson(frame.readText())
+                    val trader = traders.find { it.traderId == order.owner } ?: throw Exception("Trader not found")
+                    val orderMatch = products.find { it.name == order.name && it.owner == order.owner }
+                    if (orderMatch != null) {
+                        products.remove(orderMatch)
+                        trader.message = "Order cancelled"
+                    } else {
+                        trader.message = "Order not found"
+                    }
+                    outgoing.send(Frame.Text(trader.toJson()))
                 }
             }
         }
@@ -200,89 +251,97 @@ private fun placeOrder(
         products.add(order)
     }
 
-    return trader.apply { message = "Order registered"}
+    return trader.apply { message = "Order registered" }
 }
 
-
-// create a thread that will compare the buy and sell orders and execute the orders
 fun executeOrders() {
-    // create a thread that will compare the buy and sell orders and execute the orders
-    val thread = Thread {
-        while (true) {
-            // get all the buy orders
-            val buyOrders = products.filter { it.direction == OrderDirection.BUY }
-            // get all the sell orders
-            val sellOrders = products.filter { it.direction == OrderDirection.SELL }
+    checkStopOrders()
+    // get all the buy orders
+    val buyOrders = products.filter { it.direction == OrderDirection.BUY }
+    // get all the sell orders
+    val sellOrders = products.filter { it.direction == OrderDirection.SELL }
 
-            // for each buy order, check if there is a matching sell order
-            for (buyOrder in buyOrders) {
-                for (sellOrder in sellOrders) {
-                    // print buy and sell orders
-                    if (buyOrder.name == sellOrder.name) {
+    // for each buy order, check if there is a matching sell order
+    for (buyOrder in buyOrders) {
+        for (sellOrder in sellOrders) {
+            // print buy and sell orders
+            if (buyOrder.name == sellOrder.name) {
 
-                        // if the buy order price is greater than or equal to the sell order price, execute the order
-                        if (buyOrder.price >= sellOrder.price) {
-                            // get the buyer and seller
-                            val buyer =
-                                traders.find { it.traderId == buyOrder.owner } ?: throw Exception("Buyer not found")
-                            val seller =
-                                traders.find { it.traderId == sellOrder.owner } ?: throw Exception("Seller not found")
+                if (sellOrder.type == OrderType.MARKET) {
+                    sellOrder.price = buyOrder.price
+                }
 
-                            // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
-                            if (buyer.cash < sellOrder.price * sellOrder.quantity) {
-                                buyer.message = "Not enough cash"
-                                if(buyOrder.type == OrderType.IOC) {
-                                    return@Thread
-                                }
-                                continue
-                            }
+                if (buyOrder.type == OrderType.MARKET) {
+                    buyOrder.price = sellOrder.price
+                }
 
-                            // if there is not enough quantity of the product in the sell order to fulfill the buy order, set the message to "Not enough quantity of product available" and return the buyer
-                            if (sellOrder.quantity < buyOrder.quantity) {
-                                seller.message = "Not enough quantity of product available"
-                                if (buyOrder.type == OrderType.IOC) {
-                                    return@Thread
-                                }
-                                continue
-                            }
+                // if the buy order price is greater than or equal to the sell order price, execute the order
+                if (buyOrder.price >= sellOrder.price) {
+                    // get the buyer and seller
+                    val buyer =
+                        traders.find { it.traderId == buyOrder.owner } ?: throw Exception("Buyer not found")
+                    val seller =
+                        traders.find { it.traderId == sellOrder.owner } ?: throw Exception("Seller not found")
 
-                            // update the buyer's cash
-                            buyer.cash -= sellOrder.price * sellOrder.quantity
-
-                            // update the seller's cash
-                            seller.cash += sellOrder.price * sellOrder.quantity
-
-                            // update the buyer's inventory
-                            buyer.inventory = buyer.inventory.map {
-                                if (it.name == sellOrder.name) {
-                                    it.quantity += sellOrder.quantity
-                                }
-                                it
-                            }.toMutableList()
-
-                            //update the sell quantity of the sell order
-                            sellOrder.quantity -= buyOrder.quantity
-
-                            //if the sell order quantity is now 0, remove the sell order from the list
-                            if (sellOrder.quantity == 0) {
-                                products.remove(sellOrder)
-                            }
-
-                            //remove the buy order from the list
-                            products.remove(buyOrder)
-
-                            println("Product ${sellOrder.name} sold for ${sellOrder.price} to ${buyer.name} from ${seller.name}")
-                            //complete the thread
-                            return@Thread
-
+                    // if the buyer does not have enough cash, set the message to "Not enough cash" and return the buyer
+                    if (buyer.cash < sellOrder.price * sellOrder.quantity) {
+                        buyer.message = "Not enough cash"
+                        if (buyOrder.type == OrderType.IOC) {
+                            return
                         }
+                        continue
                     }
+
+                    // if there is not enough quantity of the product in the sell order to fulfill the buy order, set the message to "Not enough quantity of product available" and return the buyer
+                    if (sellOrder.quantity < buyOrder.quantity) {
+                        seller.message = "Not enough quantity of product available"
+                        if (buyOrder.type == OrderType.IOC) {
+                            return
+                        }
+                        continue
+                    }
+
+                    // update the buyer's cash
+                    buyer.cash -= sellOrder.price * sellOrder.quantity
+
+                    // update the seller's cash
+                    seller.cash += sellOrder.price * sellOrder.quantity
+
+                    // update the buyer's inventory
+                    buyer.inventory = buyer.inventory.map {
+                        if (it.name == sellOrder.name) {
+                            it.quantity += sellOrder.quantity
+                        }
+                        it
+                    }.toMutableList()
+
+                    //update the sell quantity of the sell order
+                    sellOrder.quantity -= buyOrder.quantity
+
+                    //if the sell order quantity is now 0, remove the sell order from the list
+                    if (sellOrder.quantity == 0) {
+                        products.remove(sellOrder)
+                    }
+
+                    //remove the buy order from the list
+                    products.remove(buyOrder)
+
+                    println("Product ${sellOrder.name} sold for ${sellOrder.price} to ${buyer.name} from ${seller.name}")
+                    reports.add(
+                        Report(
+                            buyer.name,
+                            seller.name,
+                            sellOrder.price,
+                            sellOrder.quantity,
+                        )
+                    )
+                    return
                 }
             }
         }
     }
-thread.start()
 }
+
 
 // function that after 10 seconds will increase or drop the price of a product given in a variable by a percentage
 fun changePrice(product: Product, percentage: Double) {
@@ -294,4 +353,31 @@ fun changePrice(product: Product, percentage: Double) {
         }
     }
     thread.start()
+}
+
+// function that checks if a product is a stop order and if the price is less than or equal to the stop price, it will create a market order
+fun checkStopOrders() {
+    val stopOrders = products.filter { it.type == OrderType.STOP }
+    for (stopOrder in stopOrders) {
+        val product = products.find { it.name == stopOrder.name }
+        if (product != null) {
+            if (product.price <= stopOrder.price) {
+                val trader = traders.find { it.traderId == stopOrder.owner } ?: throw Exception("Trader not found")
+                val marketOrder = Product(
+                    stopOrder.name,
+                    product.description,
+                    product.price,
+                    stopOrder.quantity,
+                    trader.traderId,
+                    stopOrder.direction,
+                    OrderType.MARKET
+                )
+                placeOrder(marketOrder, traders)
+
+                //remove the stop order from the list
+                products.remove(stopOrder)
+
+            }
+        }
+    }
 }

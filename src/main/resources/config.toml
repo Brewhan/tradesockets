@@ -7,7 +7,7 @@ houseCash = 2147483647.0
 name = "Technology"
 description = "The tech sector"
 price = 100.0
-quantity = 1000
+quantity = 100000
 owner = ""
 direction = "SELL"
 
@@ -15,7 +15,7 @@ direction = "SELL"
 name = "Food"
 description = "The food sector"
 price = 100.0
-quantity = 1000
+quantity = 100000
 owner = ""
 direction = "SELL"
 
@@ -23,7 +23,7 @@ direction = "SELL"
 name = "Real Estate"
 description = "The real estate sector"
 price = 100.0
-quantity = 1000
+quantity = 100000
 owner = ""
 direction = "SELL"
 
@@ -31,7 +31,7 @@ direction = "SELL"
 name = "Oil"
 description = "The oil sector"
 price = 100.0
-quantity = 1000
+quantity = 100000
 owner = ""
 direction = "SELL"
 
@@ -39,6 +39,6 @@ direction = "SELL"
 name = "Raw Materials"
 description = "The raw materials sector"
 price = 100.0
-quantity = 1000
+quantity = 100000
 owner = ""
 direction = "SELL"
