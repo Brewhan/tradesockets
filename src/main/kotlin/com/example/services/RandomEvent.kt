@@ -1,13 +1,12 @@
 package com.example.services
 
-import java.util.UUID
+import com.example.model.Product
+import com.example.plugins.products
 
-fun randomEvent(uuid: UUID): Triple<String, String, Sentiment> {
-
-    val productNames = ReadConfig().productNames()
+fun randomEvent(productNames: MutableList<Product>): Triple<String, String, Sentiment> {
 
     val randomEvents = listOf(
-        "A new product has been released ",
+        "A new product has been released",
         "A new competitor has entered the market",
         "A new law has been passed",
         "A new tax has been introduced",
@@ -20,7 +19,6 @@ fun randomEvent(uuid: UUID): Triple<String, String, Sentiment> {
 
 
     val randomEvent = randomEvents.random()
-    val randomProduct = productNames.random()
 
     //time for some not so random events
 
@@ -31,7 +29,7 @@ fun randomEvent(uuid: UUID): Triple<String, String, Sentiment> {
     }
 
     val sentiment = Sentiment.entries.toTypedArray().random()
-    return Triple(randomEvent, randomProduct, sentiment)
+    return Triple(randomEvent, productNames.map { it.name }.random(), sentiment)
 }
 
 enum class Sentiment {

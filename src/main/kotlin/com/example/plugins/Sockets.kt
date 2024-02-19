@@ -1,9 +1,7 @@
 package com.example.plugins
 
 import com.example.model.*
-import com.example.services.ReadConfig
-import com.example.services.Sentiment
-import com.example.services.randomEvent
+import com.example.services.*
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -40,36 +38,15 @@ ___________                  .___       _________              __           __
     //for loop to create a list of 5 traders --- TODO: move this to a config file
     traders.add(Trader(houseUUID, "House", ReadConfig().houseCash, mutableListOf(), "The House Always Wins."))
     for (i in 1..ReadConfig().numTraders) {
-        val startingInventory = mutableListOf<Inventory>()
-        for (product in products) {
-            startingInventory.add(Inventory(product.name, 0))
-        }
-        traders.add(
-            Trader(
-                UUID.randomUUID(),
-                "Trader $i",
-                ReadConfig().startingCash,
-                startingInventory,
-                "Welcome to the market!"
-            )
-        )
+        val startingInventory = generateStarterInventory(products)
+        traders.add(Trader(UUID.randomUUID(), "Trader $i", ReadConfig().startingCash, startingInventory, "Welcome to the market!"))
     }
 
     println(tradersString)
     // print traders list on new lines
     traders.forEach { println(it.toJson()) }
     println("Example Buy Order:")
-    println(
-        Product(
-            products[0].name,
-            products[0].description,
-            100.0,
-            100,
-            traders[0].traderId,
-            OrderDirection.BUY,
-            OrderType.MARKET
-        ).toJson()
-    )
+    println(Product(products[0].name, products[0].description, 100.0, 100, traders[0].traderId, OrderDirection.BUY, OrderType.MARKET).toJson())
     println("NOTE: Example Order uses house UUID as the example trader. Consider using POSTMAN to send the example order to the broker using /order endpoint.")
     println("Order types are: ${OrderType.entries}")
     println("Order directions are: ${OrderDirection.entries}")
@@ -100,10 +77,8 @@ ___________                  .___       _________              __           __
         webSocket("/products") {
             while (true) {
                 //hide the uuid before sending back products
-                val products = products.map { it.toJson() }.toString().replace(
-                    Regex("owner\":\"[a-zA-Z0-9-]*\""),
-                    "owner\":\"\""
-                )
+                val products = products.map { it.toJson() }.toString().replace(Regex("owner\":\"[a-zA-Z0-9-]*\""),
+                    "owner\":\"\"")
                 outgoing.send(Frame.Text(products))
                 Thread.sleep(5000)
             }
@@ -117,7 +92,7 @@ ___________                  .___       _________              __           __
         webSocket("/randomEvent") {
             for (frame in incoming) {
                 if (frame is Frame.Text) {
-                    val randomEvent = randomEvent(houseUUID)
+                    val randomEvent = randomEvent(products)
                     outgoing.send(Frame.Text(randomEvent.toString()))
                     if (randomEvent.third == Sentiment.NEGATIVE) {
                         products.forEach { changePrice(it, 0.9) }
@@ -128,14 +103,12 @@ ___________                  .___       _________              __           __
             }
         }
 
-        webSocket("/traders") {
+        webSocket("/traders"){
             println(traders.map { it.toJson() }.toString())
             // hide the uuid before sending back traders
-            val traders =
-                traders.map { it.toJson() }.toString().replace(Regex("traderId\":\"[a-zA-Z0-9-]*\""), "traderId\":\"\"")
+            val traders = traders.map { it.toJson() }.toString().replace(Regex("traderId\":\"[a-zA-Z0-9-]*\""), "traderId\":\"\"")
             outgoing.send(Frame.Text(traders))
         }
-
         // list all products including their buy and sell directions
         webSocket("/productsNow") {
             //hide the uuid before sending back products
@@ -158,6 +131,22 @@ ___________                  .___       _________              __           __
                         executeOrders()
                     }
                     thread.start()
+                }
+            }
+        }
+        webSocket("/cancel") {
+            for (frame in incoming) {
+                if (frame is Frame.Text) {
+                    val order = Product.fromJson(frame.readText())
+                    val trader = traders.find { it.traderId == order.owner } ?: throw Exception("Trader not found")
+                    val orderMatch = products.find { it.name == order.name && it.owner == order.owner }
+                    if (orderMatch != null) {
+                        products.remove(orderMatch)
+                        trader.message = "Order cancelled"
+                    } else {
+                        trader.message = "Order not found"
+                    }
+                    outgoing.send(Frame.Text(trader.toJson()))
                 }
             }
         }
